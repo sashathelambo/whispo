@@ -1,21 +1,22 @@
 import {
-  BrowserWindow,
-  BrowserWindowConstructorOptions,
-  shell,
-  screen,
-  app,
-} from "electron"
-import path from "path"
+    makeKeyWindow,
+    makePanel,
+    makeWindow,
+} from "@egoist/electron-panel-window"
 import { getRendererHandlers } from "@egoist/tipc/main"
 import {
-  makeKeyWindow,
-  makePanel,
-  makeWindow,
-} from "@egoist/electron-panel-window"
-import { RendererHandlers } from "./renderer-handlers"
+    app,
+    BrowserWindow,
+    BrowserWindowConstructorOptions,
+    screen,
+    shell,
+} from "electron"
+import path from "path"
+import { STATUS_BAR_DIMENSIONS } from "../shared"
 import { configStore } from "./config"
+import { RendererHandlers } from "./renderer-handlers"
 
-type WINDOW_ID = "main" | "panel" | "setup"
+type WINDOW_ID = "main" | "panel" | "setup" | "statusbar"
 
 export const WINDOWS = new Map<WINDOW_ID, BrowserWindow>()
 
@@ -127,21 +128,43 @@ export function showMainWindow(url?: string) {
 }
 
 const panelWindowSize = {
-  width: 260,
-  height: 50,
+  width: 400,
+  height: 90,
 }
 
+// Status bar dimensions - ultra compact (using shared baseline dimensions)
+const statusBarSize = STATUS_BAR_DIMENSIONS
+
 const getPanelWindowPosition = () => {
-  // position the window top right
+  // position the window near the bottom of the screen, above the taskbar
   const currentScreen = screen.getDisplayNearestPoint(
     screen.getCursorScreenPoint(),
   )
   const screenSize = currentScreen.workArea
   const position = {
     x: Math.floor(
-      screenSize.x + (screenSize.width - panelWindowSize.width) - 10,
+      screenSize.x + (screenSize.width - panelWindowSize.width) / 2,
     ),
-    y: screenSize.y + 10,
+    y: Math.floor(
+      screenSize.y + screenSize.height - panelWindowSize.height - 60,
+    ),
+  }
+
+  return position
+}
+
+const getStatusBarPosition = () => {
+  const currentScreen = screen.getDisplayNearestPoint(
+    screen.getCursorScreenPoint(),
+  )
+  const screenSize = currentScreen.workArea
+  const position = {
+    x: Math.floor(
+      screenSize.x + (screenSize.width - statusBarSize.width) / 2,
+    ),
+    y: Math.floor(
+      screenSize.y + screenSize.height - statusBarSize.height - 4, // 4px margin from very bottom
+    ),
   }
 
   return position
@@ -155,23 +178,24 @@ export function createPanelWindow() {
     url: "/panel",
     showWhenReady: false,
     windowOptions: {
-      hiddenInMissionControl: true,
-      skipTaskbar: true,
-      closable: false,
-      maximizable: false,
-      frame: false,
-      // transparent: true,
-      paintWhenInitiallyHidden: true,
-      // hasShadow: false,
       width: panelWindowSize.width,
       height: panelWindowSize.height,
-      maxWidth: panelWindowSize.width,
-      maxHeight: panelWindowSize.height,
-      minWidth: panelWindowSize.width,
-      minHeight: panelWindowSize.height,
-      visualEffectState: "active",
-      vibrancy: "under-window",
+      titleBarStyle: "customButtonsOnHover",
+      transparent: true,
+      frame: false,
+      skipTaskbar: true,
       alwaysOnTop: true,
+      resizable: false,
+      minimizable: false,
+      maximizable: false,
+      closable: false,
+      focusable: false,
+      ...(process.platform === "darwin" ? { vibrancy: "under-window" } : {}),
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: false,
+      },
       x: position.x,
       y: position.y,
     },
@@ -184,6 +208,44 @@ export function createPanelWindow() {
   makePanel(win)
 
   return win
+}
+
+export function createStatusBarWindow() {
+  const position = getStatusBarPosition()
+
+  const statusBarWindowSize = STATUS_BAR_DIMENSIONS
+
+  const statusBarWindow = createBaseWindow({
+    id: "statusbar",
+    url: "/statusbar",
+    showWhenReady: true,
+    windowOptions: {
+      width: statusBarWindowSize.width,
+      height: statusBarWindowSize.height,
+      titleBarStyle: "customButtonsOnHover",
+      transparent: true,
+      frame: false,
+      skipTaskbar: true,
+      alwaysOnTop: true,
+      resizable: true, // Allow dynamic resizing for expanded interface
+      minimizable: false,
+      maximizable: false,
+      closable: false,
+      focusable: true, // Allow focus when expanded
+      ...(process.platform === "darwin" ? { vibrancy: "under-window" } : {}),
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: false,
+      },
+      x: position.x,
+      y: position.y,
+    },
+  })
+
+  makePanel(statusBarWindow)
+
+  return statusBarWindow
 }
 
 export function showPanelWindow() {
@@ -206,6 +268,14 @@ export function makePanelWindowClosable() {
   if (panel && !panel.isClosable()) {
     makeWindow(panel)
     panel.setClosable(true)
+  }
+}
+
+export function makeStatusBarWindowClosable() {
+  const statusBar = WINDOWS.get("statusbar")
+  if (statusBar && !statusBar.isClosable()) {
+    makeWindow(statusBar)
+    statusBar.setClosable(true)
   }
 }
 

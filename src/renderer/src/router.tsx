@@ -15,6 +15,10 @@ export const router: ReturnType<typeof createBrowserRouter> =
               lazy: () => import("./pages/settings-general"),
             },
             {
+              path: "profiles",
+              lazy: () => import("./pages/settings-profiles"),
+            },
+            {
               path: "about",
               lazy: () => import("./pages/settings-about"),
             },
@@ -25,6 +29,18 @@ export const router: ReturnType<typeof createBrowserRouter> =
             {
               path: "data",
               lazy: () => import("./pages/settings-data"),
+            },
+            {
+              path: "app-rules",
+              lazy: () => import("./pages/settings-app-rules"),
+            },
+            {
+              path: "voice",
+              lazy: () => import("./pages/settings-voice"),
+            },
+            {
+              path: "context-formatting",
+              lazy: () => import("./pages/settings-context-formatting"),
             },
           ],
         },
@@ -41,5 +57,9 @@ export const router: ReturnType<typeof createBrowserRouter> =
     {
       path: "/panel",
       lazy: () => import("./pages/panel"),
+    },
+    {
+      path: "/statusbar",
+      lazy: () => import("./pages/statusbar"),
     },
   ])

@@ -1,19 +1,19 @@
 import { ControlGroup } from "@renderer/components/ui/control"
-import { queryClient } from "@renderer/lib/query-client"
-import { rendererHandlers, tipcClient } from "@renderer/lib/tipc-client"
-import { cn } from "@renderer/lib/utils"
-import { useQuery } from "@tanstack/react-query"
-import { useEffect, useMemo, useRef, useState } from "react"
-import { RecordingHistoryItem } from "@shared/types"
-import dayjs from "dayjs"
 import { Input } from "@renderer/components/ui/input"
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
 } from "@renderer/components/ui/tooltip"
-import { playSound } from "@renderer/lib/sound"
+import { queryClient, useConfigQuery } from "@renderer/lib/query-client"
+import { rendererHandlers, tipcClient } from "@renderer/lib/tipc-client"
+import { cn } from "@renderer/lib/utils"
+import { getHoldKeyDisplayName, HOLD_KEY_OPTIONS } from "@shared/index"
+import { RecordingHistoryItem } from "@shared/types"
+import { useQuery } from "@tanstack/react-query"
+import dayjs from "dayjs"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 export function Component() {
   const historyQuery = useQuery({
@@ -22,6 +22,8 @@ export function Component() {
       return tipcClient.getRecordingHistory()
     },
   })
+
+  const configQuery = useConfigQuery()
 
   const [keyword, setKeyword] = useState("")
 
@@ -68,6 +70,48 @@ export function Component() {
     })
   }, [])
 
+  const getShortcutDisplay = () => {
+    const shortcut = configQuery.data?.shortcut
+    const holdKey = configQuery.data?.holdKey || "AltLeft+Space"
+
+    if (shortcut === "hold-key") {
+      const holdKeyOption = HOLD_KEY_OPTIONS.find(opt => opt.value === holdKey)
+      const displayName = holdKeyOption?.label || getHoldKeyDisplayName(holdKey)
+      return {
+        text: `Hold ${displayName} to record`,
+        key: displayName
+      }
+    } else if (shortcut === "ctrl-slash") {
+      return {
+        text: "Press Ctrl+/ to record",
+        key: "Ctrl+/"
+      }
+    } else if (shortcut === "voice-activation") {
+      return {
+        text: "Voice activation enabled - just speak to record",
+        key: null
+      }
+    } else if (shortcut === "streaming-dictation") {
+      return {
+        text: "Streaming dictation - real-time speech typing",
+        key: null
+      }
+    } else if (shortcut === "disabled") {
+      return {
+        text: "Recording shortcuts disabled",
+        key: null
+      }
+    }
+
+    // Default fallback
+    return {
+      text: "Hold Alt + Space to record",
+      key: "Alt + Space"
+    }
+  }
+
+  const shortcutInfo = getShortcutDisplay()
+
   return (
     <>
       <header className="app-drag-region flex h-12 shrink-0 items-center justify-between border-b px-4 text-sm">
@@ -92,11 +136,17 @@ export function Component() {
           </span>
           {!keyword && (
             <span className="text-sm text-muted-foreground">
-              Hold{" "}
-              <span className="inline-flex h-6 items-center rounded-lg border p-1 text-sm dark:border-neutral-700 dark:bg-neutral-800">
-                Ctrl
-              </span>{" "}
-              to record
+              {shortcutInfo.key ? (
+                <>
+                  Hold{" "}
+                  <span className="inline-flex h-6 items-center rounded-lg border p-1 text-sm dark:border-neutral-700 dark:bg-neutral-800">
+                    {shortcutInfo.key}
+                  </span>{" "}
+                  to record
+                </>
+              ) : (
+                shortcutInfo.text
+              )}
             </span>
           )}
         </div>
@@ -137,9 +187,16 @@ export function Component() {
                           </Tooltip>
                         </TooltipProvider>
                         <div className="grow select-text">
-                          {item.transcript}
+                          {item.isOriginalShown ? item.originalTranscript : item.transcript}
                         </div>
                         <div className="flex shrink-0 gap-2 text-sm">
+                          {item.originalTranscript && (
+                            <UndoButton
+                              id={item.id}
+                              isShowingOriginal={item.isOriginalShown || false}
+                            />
+                          )}
+
                           <PlayButton id={item.id} />
 
                           <DeleteButton id={item.id} />
@@ -210,6 +267,38 @@ const PlayButton = ({ id }: { id: string }) => {
         )}
       ></span>
     </button>
+  )
+}
+
+const UndoButton = ({ id, isShowingOriginal }: { id: string; isShowingOriginal: boolean }) => {
+  return (
+    <TooltipProvider>
+      <Tooltip delayDuration={0} disableHoverableContent>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className={itemButtonVariants()}
+            onClick={async () => {
+              try {
+                await tipcClient.toggleRecordingTranscript({ id })
+                queryClient.invalidateQueries({
+                  queryKey: ["recording-history"],
+                })
+              } catch (error) {
+                console.error("Failed to toggle transcript:", error)
+              }
+            }}
+          >
+            <span
+              className={isShowingOriginal ? "i-mingcute-refresh-2-line" : "i-mingcute-history-line"}
+            ></span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>
+          {isShowingOriginal ? "Redo AI Edit" : "Undo AI Edit"}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
 

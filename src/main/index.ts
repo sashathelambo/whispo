@@ -1,19 +1,24 @@
-import { app, Menu } from "electron"
-import { electronApp, optimizer } from "@electron-toolkit/utils"
-import {
-  createMainWindow,
-  createPanelWindow,
-  createSetupWindow,
-  makePanelWindowClosable,
-  WINDOWS,
-} from "./window"
-import { listenToKeyboardEvents } from "./keyboard"
 import { registerIpcMain } from "@egoist/tipc/main"
-import { router } from "./tipc"
-import { registerServeProtocol, registerServeSchema } from "./serve"
+import { electronApp, optimizer } from "@electron-toolkit/utils"
+import { app, Menu } from "electron"
+import { startAppDetection } from "./app-detector"
+import { configStore } from "./config"
+import { listenToKeyboardEvents } from "./keyboard"
 import { createAppMenu } from "./menu"
+import { registerServeProtocol, registerServeSchema } from "./serve"
+import { router } from "./tipc"
 import { initTray } from "./tray"
 import { isAccessibilityGranted } from "./utils"
+import { initVoiceActivation } from "./voice-activation"
+import {
+    createMainWindow,
+    createPanelWindow,
+    createSetupWindow,
+    createStatusBarWindow,
+    makePanelWindowClosable,
+    makeStatusBarWindowClosable,
+    WINDOWS,
+} from "./window"
 
 registerServeSchema()
 
@@ -40,9 +45,23 @@ app.whenReady().then(() => {
 
   createPanelWindow()
 
+  // Create the persistent status bar
+  createStatusBarWindow()
+
+  console.log("[DEBUG] Starting keyboard event listener...")
   listenToKeyboardEvents()
+  console.log("[DEBUG] Keyboard event listener started")
 
   initTray()
+
+  // Initialize new features
+  startAppDetection()
+
+  // Initialize voice activation if enabled in config
+  const config = configStore.get()
+  if (config.voiceActivation?.enabled) {
+    initVoiceActivation().catch(console.error)
+  }
 
   import("./updater").then((res) => res.init()).catch(console.error)
 
@@ -67,6 +86,7 @@ app.whenReady().then(() => {
 
   app.on("before-quit", () => {
     makePanelWindowClosable()
+    makeStatusBarWindowClosable()
   })
 })
 

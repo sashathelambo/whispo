@@ -1,11 +1,16 @@
-import "./css/tailwind.css"
-import "./css/spinner.css"
+import { QueryClientProvider } from "@tanstack/react-query"
+import dayjs from "dayjs"
+import relativeTime from "dayjs/plugin/relativeTime"
 import React from "react"
 import ReactDOM from "react-dom/client"
 import App from "./App"
-import { tipcClient } from "./lib/tipc-client"
-import { QueryClientProvider } from "@tanstack/react-query"
+import "./css/spinner.css"
+import "./css/tailwind.css"
 import { queryClient } from "./lib/query-client"
+import { tipcClient } from "./lib/tipc-client"
+
+// Configure dayjs plugins
+dayjs.extend(relativeTime)
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

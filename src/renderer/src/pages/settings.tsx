@@ -8,12 +8,28 @@ export function Component() {
       href: "/settings",
     },
     {
+      text: "Profiles",
+      href: "/settings/profiles",
+    },
+    {
       text: "Providers",
       href: "/settings/providers",
     },
     {
       text: "Data",
       href: "/settings/data",
+    },
+    {
+      text: "Voice",
+      href: "/settings/voice",
+    },
+    {
+      text: "Context Formatting",
+      href: "/settings/context-formatting",
+    },
+    {
+      text: "App Rules",
+      href: "/settings/app-rules",
     },
     {
       text: "About",
